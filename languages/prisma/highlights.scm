@@ -4,6 +4,7 @@
  "generator"
  "model"
  "view"
+ "type"
 ] @keyword
 
 (comment) @comment
