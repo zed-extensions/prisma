@@ -1,11 +1,3 @@
-#
-# zed-prisma
-#
-
 *.wasm
-
-#
-# Rust
-#
-
-/target
+target/
+grammars/

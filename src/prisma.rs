@@ -1,5 +1,5 @@
 use std::{env, fs};
-use zed_extension_api::{self as zed, Result};
+use zed_extension_api::{self as zed, serde_json, settings::LspSettings, Result};
 
 const SERVER_PATH: &str = "node_modules/.bin/prisma-language-server";
 const PACKAGE_NAME: &str = "@prisma/language-server";
@@ -59,6 +59,22 @@ impl zed::Extension for PrismaExtension {
         Self {
             did_find_server: false,
         }
+    }
+
+    fn language_server_workspace_configuration(
+        &mut self,
+        _language_server_id: &zed::LanguageServerId,
+        _worktree: &zed::Worktree,
+    ) -> Result<Option<zed::serde_json::Value>> {
+        // Todo: support merging user/workspace settings
+        // let settings = LspSettings::for_worktree("prisma-language-server", _worktree)
+        //     .ok()
+        //     .and_then(|lsp_settings| lsp_settings.settings.clone())
+        //     .unwrap_or_default();
+
+        Ok(Some(serde_json::json!({
+            "prisma": {"enableDiagnostics": true}
+        })))
     }
 
     fn language_server_command(
