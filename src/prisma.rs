@@ -1,5 +1,5 @@
 use std::{env, fs};
-use zed_extension_api::{self as zed, serde_json, settings::LspSettings, Result};
+use zed_extension_api::{self as zed, serde_json, Result};
 
 const SERVER_PATH: &str = "node_modules/.bin/prisma-language-server";
 const PACKAGE_NAME: &str = "@prisma/language-server";
