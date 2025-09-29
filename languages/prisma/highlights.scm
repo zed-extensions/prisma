@@ -4,6 +4,7 @@
  "generator"
  "model"
  "view"
+ "type"
 ] @keyword
 
 (comment) @comment
@@ -18,6 +19,10 @@
 (call_expression (identifier) @function)
 (enumeral) @constant
 (identifier) @variable
+(column_type (identifier) @type)
+(column_type (call_expression (identifier) @type))
+(type_declaration_type) @type
+(type_declaration (identifier) @type.definition)
 (column_declaration (identifier) (column_type (identifier) @type))
 (attribute (identifier) @label)
 (attribute (call_expression (identifier) @label))
