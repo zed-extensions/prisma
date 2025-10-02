@@ -1,7 +1,7 @@
 id = "prisma"
 name = "Prisma"
 description = "Prisma support."
-version = "0.1.3"
+version = "0.1.4"
 schema_version = 1
 authors = ["Matthew Gramigna <matthewgramigna@gmail.com>", "Victor Quiroz <git@victorhqc.com>"]
 repository = "https://github.com/zed-extensions/prisma"
@@ -12,4 +12,4 @@ language = "Prisma"
 
 [grammars.prisma]
 repository = "https://github.com/victorhqc/tree-sitter-prisma"
-commit = "beeac50812da9765e29cbb2af1324783033cdca3"
+commit = "3556b2c1f20ec9ac91e92d32c43d9d2a0ca3cc49"
