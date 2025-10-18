@@ -82,7 +82,7 @@ impl zed::Extension for PrismaExtension {
         language_server_id: &zed::LanguageServerId,
         _worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
-        let server_path = self.server_script_path(language_server_id)?;
+        let server_path = zed_ext::resolve_windows_path(self.server_script_path(language_server_id)?);
         Ok(zed::Command {
             command: zed::node_binary_path()?,
             args: vec![
@@ -99,3 +99,16 @@ impl zed::Extension for PrismaExtension {
 }
 
 zed::register_extension!(PrismaExtension);
+
+mod zed_ext {
+    pub fn resolve_windows_path(path: String) -> String {
+        use zed_extension_api::{current_platform, Os};
+
+        let (os, _arch) = current_platform();
+
+        match os {
+            Os::Mac | Os::Linux => path,
+            Os::Windows => "node_modules/@prisma/language-server/dist/bin.js".to_string()
+        }
+    }
+}
