@@ -1,7 +1,6 @@
 use std::{env, fs};
 use zed_extension_api::{self as zed, serde_json, Result};
 
-const SERVER_PATH: &str = "node_modules/.bin/prisma-language-server";
 const PACKAGE_NAME: &str = "@prisma/language-server";
 
 struct PrismaExtension {
@@ -9,14 +8,23 @@ struct PrismaExtension {
 }
 
 impl PrismaExtension {
-    fn server_exists(&self) -> bool {
-        fs::metadata(SERVER_PATH).map_or(false, |stat| stat.is_file())
+    fn server_exists(&self, server_path: &str) -> bool {
+        fs::metadata(server_path).map_or(false, |stat| stat.is_file())
     }
 
     fn server_script_path(&mut self, language_server_id: &zed::LanguageServerId) -> Result<String> {
-        let server_exists = self.server_exists();
+        let (os, _arch) = zed::current_platform();
+        let server_path = format!(
+            "node_modules/{server_script}",
+            server_script = match os {
+                zed::Os::Mac | zed::Os::Linux => ".bin/prisma-language-server",
+                zed::Os::Windows => "@prisma/language-server/dist/bin.js"
+            }
+        );
+
+        let server_exists = self.server_exists(&server_path);
         if self.did_find_server && server_exists {
-            return Ok(SERVER_PATH.to_string());
+            return Ok(server_path);
         }
 
         zed::set_language_server_installation_status(
@@ -35,14 +43,14 @@ impl PrismaExtension {
             let result = zed::npm_install_package(PACKAGE_NAME, &version);
             match result {
                 Ok(()) => {
-                    if !self.server_exists() {
+                    if !self.server_exists(&server_path) {
                         Err(format!(
-                            "installed package '{PACKAGE_NAME}' did not contain expected path '{SERVER_PATH}'",
+                            "installed package '{PACKAGE_NAME}' did not contain expected path '{server_path}'",
                         ))?;
                     }
                 }
                 Err(error) => {
-                    if !self.server_exists() {
+                    if !self.server_exists(&server_path) {
                         Err(error)?;
                     }
                 }
@@ -50,7 +58,7 @@ impl PrismaExtension {
         }
 
         self.did_find_server = true;
-        Ok(SERVER_PATH.to_string())
+        Ok(server_path)
     }
 }
 
