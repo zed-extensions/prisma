@@ -20,7 +20,7 @@ struct PrismaExtension {
 
 impl PrismaExtension {
     fn server_exists(&self, server_path: &str) -> bool {
-        fs::metadata(server_path).map_or(false, |stat| stat.is_file())
+        fs::metadata(server_path).is_ok_and(|stat| stat.is_file())
     }
 
     fn server_script_path(
