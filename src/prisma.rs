@@ -1,10 +1,21 @@
+use json_value_merge::Merge;
 use std::{env, fs};
-use zed_extension_api::{self as zed, serde_json, Result};
+use zed_extension_api::{
+    self as zed,
+    serde_json::{self, Value},
+    settings::LspSettings,
+    Extension, Result, Worktree,
+};
 
 const PACKAGE_NAME: &str = "@prisma/language-server";
+const LANGUAGE_SERVER_ID: &str = "prisma-language-server";
+
+const PIN_PRISMA_KEY: &str = "pinToPrisma6";
+const PINNED_PRISMA_VERSION: &str = "6.0.13";
 
 struct PrismaExtension {
     did_find_server: bool,
+    using_pinned_version: bool,
 }
 
 impl PrismaExtension {
@@ -12,13 +23,39 @@ impl PrismaExtension {
         fs::metadata(server_path).map_or(false, |stat| stat.is_file())
     }
 
-    fn server_script_path(&mut self, language_server_id: &zed::LanguageServerId) -> Result<String> {
+    fn server_script_path(
+        &mut self,
+        language_server_id: &zed::LanguageServerId,
+        worktree: &Worktree,
+    ) -> Result<String> {
+        let should_install_pinned_version = self
+            .language_server_workspace_configuration(language_server_id, worktree)
+            .ok()
+            .flatten()
+            .is_some_and(|settings| {
+                settings
+                    .get("prisma")
+                    .and_then(|prisma_settings| {
+                        prisma_settings.get(PIN_PRISMA_KEY).and_then(Value::as_bool)
+                    })
+                    .unwrap_or(false)
+            });
+
+        let version_changed = self.using_pinned_version != should_install_pinned_version;
+        self.did_find_server &= version_changed;
+
+        let target_version = if should_install_pinned_version {
+            PINNED_PRISMA_VERSION.to_string()
+        } else {
+            zed::npm_package_latest_version(PACKAGE_NAME)?
+        };
+
         let (os, _arch) = zed::current_platform();
         let server_path = format!(
             "node_modules/{server_script}",
             server_script = match os {
                 zed::Os::Mac | zed::Os::Linux => ".bin/prisma-language-server",
-                zed::Os::Windows => "@prisma/language-server/dist/bin.js"
+                zed::Os::Windows => "@prisma/language-server/dist/bin.js",
             }
         );
 
@@ -31,16 +68,16 @@ impl PrismaExtension {
             language_server_id,
             &zed::LanguageServerInstallationStatus::CheckingForUpdate,
         );
-        let version = zed::npm_package_latest_version(PACKAGE_NAME)?;
 
         if !server_exists
-            || zed::npm_package_installed_version(PACKAGE_NAME)?.as_ref() != Some(&version)
+            || zed::npm_package_installed_version(PACKAGE_NAME)?
+                .is_none_or(|installed_version| installed_version != target_version)
         {
             zed::set_language_server_installation_status(
                 language_server_id,
                 &zed::LanguageServerInstallationStatus::Downloading,
             );
-            let result = zed::npm_install_package(PACKAGE_NAME, &version);
+            let result = zed::npm_install_package(PACKAGE_NAME, &target_version);
             match result {
                 Ok(()) => {
                     if !self.server_exists(&server_path) {
@@ -58,6 +95,7 @@ impl PrismaExtension {
         }
 
         self.did_find_server = true;
+        self.using_pinned_version = should_install_pinned_version;
         Ok(server_path)
     }
 }
@@ -66,31 +104,50 @@ impl zed::Extension for PrismaExtension {
     fn new() -> Self {
         Self {
             did_find_server: false,
+            using_pinned_version: false,
         }
+    }
+
+    fn language_server_initialization_options(
+        &mut self,
+        _language_server_id: &zed_extension_api::LanguageServerId,
+        worktree: &zed_extension_api::Worktree,
+    ) -> Result<Option<serde_json::Value>> {
+        LspSettings::for_worktree(LANGUAGE_SERVER_ID, worktree)
+            .map(|settings| settings.initialization_options.clone())
     }
 
     fn language_server_workspace_configuration(
         &mut self,
         _language_server_id: &zed::LanguageServerId,
-        _worktree: &zed::Worktree,
+        worktree: &zed::Worktree,
     ) -> Result<Option<zed::serde_json::Value>> {
-        // Todo: support merging user/workspace settings
-        // let settings = LspSettings::for_worktree("prisma-language-server", _worktree)
-        //     .ok()
-        //     .and_then(|lsp_settings| lsp_settings.settings.clone())
-        //     .unwrap_or_default();
+        LspSettings::for_worktree(LANGUAGE_SERVER_ID, worktree).map(|lsp_settings| {
+            let default_settings = {
+                serde_json::json!({
+                    "prisma": {"enableDiagnostics": true}
+                })
+            };
 
-        Ok(Some(serde_json::json!({
-            "prisma": {"enableDiagnostics": true}
-        })))
+            Some(
+                lsp_settings
+                    .settings
+                    .clone()
+                    .map(|mut settings| {
+                        settings.merge(&default_settings);
+                        settings
+                    })
+                    .unwrap_or(default_settings),
+            )
+        })
     }
 
     fn language_server_command(
         &mut self,
         language_server_id: &zed::LanguageServerId,
-        _worktree: &zed::Worktree,
+        worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
-        let server_path = self.server_script_path(language_server_id)?;
+        let server_path = self.server_script_path(language_server_id, worktree)?;
         Ok(zed::Command {
             command: zed::node_binary_path()?,
             args: vec![

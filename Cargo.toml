@@ -10,4 +10,5 @@ path = "src/prisma.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
+json_value_merge = "2.0"
 zed_extension_api = "0.7.0"
