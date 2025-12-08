@@ -11,7 +11,8 @@ const PACKAGE_NAME: &str = "@prisma/language-server";
 const LANGUAGE_SERVER_ID: &str = "prisma-language-server";
 
 const PIN_PRISMA_KEY: &str = "pinToPrisma6";
-const PINNED_PRISMA_VERSION: &str = "6.0.13";
+const PIN_PRISMA_VERSION_KEY: &str = "pinnedPrismaVersion";
+const DEFAULT_PINNED_PRISMA_VERSION: &str = "6.0.13";
 
 struct PrismaExtension {
     did_find_server: bool,
@@ -28,24 +29,38 @@ impl PrismaExtension {
         language_server_id: &zed::LanguageServerId,
         worktree: &Worktree,
     ) -> Result<String> {
-        let should_install_pinned_version = self
+        let workspace_settings = self
             .language_server_workspace_configuration(language_server_id, worktree)
             .ok()
-            .flatten()
-            .is_some_and(|settings| {
-                settings
-                    .get("prisma")
-                    .and_then(|prisma_settings| {
-                        prisma_settings.get(PIN_PRISMA_KEY).and_then(Value::as_bool)
-                    })
-                    .unwrap_or(false)
-            });
+            .flatten();
+
+        let prisma_settings = workspace_settings
+            .as_ref()
+            .and_then(|settings| settings.get("prisma"))
+            .and_then(Value::as_object);
+
+        let pinned_version_override = prisma_settings
+            .and_then(|settings| settings.get(PIN_PRISMA_VERSION_KEY))
+            .and_then(Value::as_str)
+            .map(|version| version.trim())
+            .filter(|version| !version.is_empty())
+            .map(String::from);
+
+        let should_install_pinned_version_configured = prisma_settings
+            .and_then(|settings| settings.get(PIN_PRISMA_KEY))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
+        let should_install_pinned_version =
+            should_install_pinned_version_configured || pinned_version_override.is_some();
 
         let version_changed = self.using_pinned_version != should_install_pinned_version;
         self.did_find_server &= version_changed;
 
-        let target_version = if should_install_pinned_version {
-            PINNED_PRISMA_VERSION.to_string()
+        let target_version = if let Some(version) = pinned_version_override {
+            version
+        } else if should_install_pinned_version {
+            DEFAULT_PINNED_PRISMA_VERSION.to_string()
         } else {
             zed::npm_package_latest_version(PACKAGE_NAME)?
         };
