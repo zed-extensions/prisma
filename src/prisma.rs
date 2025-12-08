@@ -16,7 +16,7 @@ const DEFAULT_PINNED_PRISMA_VERSION: &str = "6.0.13";
 
 struct PrismaExtension {
     did_find_server: bool,
-    using_pinned_version: bool,
+    active_version: Option<String>,
 }
 
 impl PrismaExtension {
@@ -54,16 +54,16 @@ impl PrismaExtension {
         let should_install_pinned_version =
             should_install_pinned_version_configured || pinned_version_override.is_some();
 
-        let version_changed = self.using_pinned_version != should_install_pinned_version;
-        self.did_find_server &= version_changed;
-
-        let target_version = if let Some(version) = pinned_version_override {
-            version
+        let target_version = if let Some(version) = pinned_version_override.as_ref() {
+            version.clone()
         } else if should_install_pinned_version {
             DEFAULT_PINNED_PRISMA_VERSION.to_string()
         } else {
             zed::npm_package_latest_version(PACKAGE_NAME)?
         };
+
+        let version_changed = self.active_version.as_deref() != Some(target_version.as_str());
+        self.did_find_server &= !version_changed;
 
         let (os, _arch) = zed::current_platform();
         let server_path = format!(
@@ -110,7 +110,7 @@ impl PrismaExtension {
         }
 
         self.did_find_server = true;
-        self.using_pinned_version = should_install_pinned_version;
+        self.active_version = Some(target_version);
         Ok(server_path)
     }
 }
@@ -119,7 +119,7 @@ impl zed::Extension for PrismaExtension {
     fn new() -> Self {
         Self {
             did_find_server: false,
-            using_pinned_version: false,
+            active_version: None,
         }
     }
 
