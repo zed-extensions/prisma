@@ -42,7 +42,7 @@ impl PrismaExtension {
             });
 
         let version_changed = self.using_pinned_version != should_install_pinned_version;
-        self.did_find_server &= version_changed;
+        self.did_find_server &= !version_changed;
 
         let target_version = if should_install_pinned_version {
             PINNED_PRISMA_VERSION.to_string()
