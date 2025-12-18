@@ -11,7 +11,7 @@ const PACKAGE_NAME: &str = "@prisma/language-server";
 const LANGUAGE_SERVER_ID: &str = "prisma-language-server";
 
 const PIN_PRISMA_KEY: &str = "pinToPrisma6";
-const PINNED_PRISMA_VERSION: &str = "6.19.1";
+const PINNED_PRISMA_VERSION: &str = "6.19.0-hotfix.1";
 
 struct PrismaExtension {
     did_find_server: bool,
@@ -42,7 +42,7 @@ impl PrismaExtension {
             });
 
         let version_changed = self.using_pinned_version != should_install_pinned_version;
-        self.did_find_server &= version_changed;
+        self.did_find_server &= !version_changed;
 
         let target_version = if should_install_pinned_version {
             PINNED_PRISMA_VERSION.to_string()
