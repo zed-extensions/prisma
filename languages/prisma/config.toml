@@ -9,6 +9,7 @@ brackets = [
 ]
 tab_size = 2
 word_characters = ["@"]
+completion_query_characters = ["@"]
 
 [overrides.string]
 word_characters = ["@"]
