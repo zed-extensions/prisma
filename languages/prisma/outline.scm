@@ -35,4 +35,4 @@
   (enum_block)) @item
 
 ; Comments
-(comment) @documentation
+(comment) @_documentation
